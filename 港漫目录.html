@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>港漫目录</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Microsoft YaHei","微软雅黑",sans-serif; background: #f0f2f5; }
+  .toolbar {
+    position: sticky; top: 0; z-index: 100;
+    background: #1a1a2e; color: #fff; padding: 12px 20px;
+    display: flex; align-items: center; gap: 16px;
+    flex-wrap: wrap; row-gap: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  }
+  .toolbar h1 { font-size: 18px; font-weight: 700; flex: 1 1 auto; white-space: nowrap; }
+  .selected-count {
+    background: #e94560; color: #fff; padding: 4px 14px;
+    border-radius: 20px; font-size: 13px; font-weight: 600;
+    min-width: 80px; text-align: center;
+  }
+  .btn-clear {
+    background: transparent; border: 1px solid #e94560; color: #e94560;
+    padding: 6px 16px; border-radius: 6px; cursor: pointer;
+    font-size: 13px; transition: all .2s;
+  }
+  .btn-clear:hover { background: #e94560; color: #fff; }
+  .btn-submit {
+    background: #e94560; color: #fff; padding: 6px 20px;
+    border-radius: 6px; cursor: pointer; font-size: 14px;
+    font-weight: 600; border: none; transition: all .2s;
+  }
+  .btn-submit:hover { background: #c73652; }
+  .btn-submit:disabled { background: #555; cursor: not-allowed; }
+  .search-bar {
+    position: sticky; top: 46px; z-index: 90;
+    padding: 10px 20px; background: #fff;
+    border-bottom: 1px solid #ddd;
+    display: flex; gap: 12px; align-items: center;
+  }
+  .search-bar input {
+    flex: 1; padding: 6px 12px; border: 1px solid #ccc;
+    border-radius: 6px; font-size: 14px; outline: none;
+  }
+  .search-bar input:focus { border-color: #e94560; }
+  .search-info { font-size: 12px; color: #888; white-space: nowrap; }
+  .frozen-header {
+    position: sticky; top: 82px; z-index: 80;
+    background: #fff; border-bottom: 2px solid #e94560;
+    box-shadow: 0 2px 6px rgba(0,0,0,.08);
+  }
+  .frozen-row {
+    display: flex; border-bottom: 1px solid #eee;
+    min-height: 36px; align-items: center;
+  }
+  .frozen-row.empty { min-height: 14px; background: #fafafa; }
+  .frozen-cell {
+    padding: 6px 14px; font-size: 13px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .frozen-cell a {
+    color: #e94560; text-decoration: none; cursor: pointer;
+    font-weight: 600; transition: color .15s;
+  }
+  .frozen-cell a:hover { text-decoration: underline; color: #c73652; }
+  .frozen-cell.merged {
+    text-align: center; font-weight: 600; color: #555;
+    background: #f8f8f8; font-size: 14px;
+  }
+  table { width: 100%; border-collapse: collapse; background: #fff; }
+  thead th {
+    background: #16213e; color: #eee; padding: 10px 14px;
+    text-align: left; font-size: 13px; font-weight: 600;
+    position: sticky; top: 88px; z-index: 50;
+    white-space: nowrap;
+  }
+  tbody tr {
+    border-bottom: 1px solid #f0f0f0; cursor: pointer;
+    transition: background .12s;
+  }
+  tbody tr:hover { background: #fff3f5 !important; }
+  tbody tr.selected { background: #ffe0e6 !important; border-left: 3px solid #e94560; }
+  tbody tr.selected td:first-child { font-weight: 600; color: #e94560; }
+  tbody td { padding: 9px 14px; font-size: 13px; color: #333; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.55); z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: #fff; border-radius: 12px;
+    width: 92%; max-width: 920px; max-height: 86vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 8px 40px rgba(0,0,0,.3);
+  }
+  .modal-header {
+    padding: 16px 20px; display: flex; align-items: center;
+    justify-content: space-between;
+    background: #1a1a2e; color: #fff; border-radius: 12px 12px 0 0;
+  }
+  .modal-header h2 { font-size: 16px; }
+  .modal-close {
+    background: none; border: none; color: #aaa;
+    font-size: 22px; cursor: pointer; line-height: 1;
+  }
+  .modal-close:hover { color: #fff; }
+  .modal-body { overflow-y: auto; flex: 1; }
+  .modal-footer {
+    padding: 12px 20px; border-top: 1px solid #eee;
+    display: flex; gap: 10px; justify-content: flex-end;
+    flex-wrap: wrap; background: #fafafa; border-radius: 0 0 12px 12px;
+  }
+  .modal table { width: 100%; }
+  .modal thead th {
+    position: static; background: #16213e; color: #eee;
+    padding: 10px 14px; text-align: left; font-size: 13px;
+  }
+  .modal tbody tr { background: #fff; }
+  .modal tbody tr:nth-child(even) { background: #f8f8f8; }
+  .btn-share {
+    background: #e94560; color: #fff; padding: 7px 18px;
+    border-radius: 6px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 600; transition: background .2s;
+  }
+  .btn-share:hover { background: #c73652; }
+  .btn-modal-close {
+    background: #eee; color: #333; padding: 7px 18px;
+    border-radius: 6px; border: none; cursor: pointer; font-size: 13px;
+  }
+  .btn-modal-close:hover { background: #ddd; }
+  .empty-tip { text-align: center; padding: 60px; color: #aaa; font-size: 15px; }
+  .row-num { padding: 9px 10px; text-align: center; color: #bbb; font-size: 11px; }
+  /* ── 分享视图样式 ── */
+  .share-view-container {
+    max-width: 1200px; margin: 0 auto; padding: 20px;
+  }
+  .share-header {
+    background: #1a1a2e; color: #fff; padding: 14px 24px;
+    border-radius: 10px 10px 0 0;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .share-header h1 { font-size: 17px; font-weight: 600; }
+  .share-header a { color: #e94560; font-size: 13px; text-decoration: none; }
+  .share-header a:hover { text-decoration: underline; }
+  .share-table {
+    background: #fff; border-radius: 0 0 10px 10px;
+    overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  }
+  .share-table table { width: 100%; border-collapse: collapse; }
+  .share-table thead th {
+    background: #f5f5f5; color: #333; padding: 10px 14px;
+    text-align: left; font-size: 13px; font-weight: 600;
+    border-bottom: 2px solid #e94560; position: static;
+  }
+  .share-table tbody tr { cursor: default; border-bottom: 1px solid #f0f0f0; }
+  .share-table tbody tr:hover { background: #ffe0e6 !important; }
+  .share-table tbody tr:nth-child(even) { background: #fafafa; }
+  .share-table tbody td { padding: 9px 14px; font-size: 13px; color: #333; }
+  .share-footer {
+    text-align: center; padding: 20px; color: #999; font-size: 12px;
+  }
+
+  @media (max-width: 500px) {
+    .toolbar { top: 52px; padding: 8px 12px; gap: 8px; }
+    .toolbar h1 { font-size: 15px; }
+    .selected-count { font-size: 12px; padding: 3px 10px; min-width: auto; }
+    .btn-clear { font-size: 12px; padding: 4px 10px; }
+    .btn-submit { font-size: 12px; padding: 4px 12px; }
+    .search-bar { padding: 8px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── 交互视图（默认） ── -->
+<div id="mainView">
+<div class="toolbar">
+  <h1>📁 港漫目录</h1>
+  <div class="selected-count" id="countBadge">已选 0 行</div>
+  <button class="btn-clear" onclick="clearSelection()">✕ 清除选择</button>
+  <button class="btn-submit" id="btnSubmit" onclick="openModal()" disabled>📋 我选好了</button>
+</div>
+
+<div class="search-bar">
+  <input type="text" id="searchInput" placeholder="🔍 搜索..." oninput="filterTable()">
+  <span class="search-info" id="searchInfo">共 0 条记录</span>
+</div>
+
+<div class="frozen-header" id="frozenHeader">
+  <div class="frozen-row empty"><div class="frozen-cell">&nbsp;</div></div><div class="frozen-row"><div class="frozen-cell merged">资源说明：目录上99%为 高清PDF版本。   </div></div><div class="frozen-row empty"><div class="frozen-cell">&nbsp;</div></div><div class="frozen-row"><div class="frozen-cell merged">下方蓝字为漫画分类，点击可跳转相应分类。</div></div><div class="frozen-row"><div class="frozen-cell"></div><div class="frozen-cell"><a href="javascript:scrollToRow(11)" title="跳转到第11行">都市 </a></div><div class="frozen-cell"><a href="javascript:scrollToRow(44)" title="跳转到第44行">格斗</a></div><div class="frozen-cell"></div></div><div class="frozen-row"><div class="frozen-cell"></div><div class="frozen-cell"><a href="javascript:scrollToRow(143)" title="跳转到第143行">江湖</a></div><div class="frozen-cell"><a href="javascript:scrollToRow(158)" title="跳转到第158行">科幻</a></div><div class="frozen-cell"></div></div><div class="frozen-row"><div class="frozen-cell"></div><div class="frozen-cell"><a href="javascript:scrollToRow(193)" title="跳转到第193行">历史</a></div><div class="frozen-cell"><a href="javascript:scrollToRow(224)" title="跳转到第224行">神魔</a></div><div class="frozen-cell"></div></div><div class="frozen-row"><div class="frozen-cell"></div><div class="frozen-cell"><a href="javascript:scrollToRow(267)" title="跳转到第267行">武侠</a></div><div class="frozen-cell"><a href="javascript:scrollToRow(359)" title="跳转到第359行">跳转到最后↓↓↓</a></div><div class="frozen-cell"></div></div><div class="frozen-row empty"><div class="frozen-cell">&nbsp;</div></div>
+</div>
+
+<div class="table-wrap">
+  <table id="mainTable">
+    <thead id="tableHead"></thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+</div>
+
+<div class="share-view-container" id="shareView" style="display:none;">
+  <div class="share-header">
+    <h1>📋 已选子表单 - <span id="shareTitle">港漫目录</span></h1>
+    <a href="." onclick="exitShareView();return false">← 返回完整表单</a>
+  </div>
+  <div class="share-table">
+    <table>
+      <thead id="shareHead"></thead>
+      <tbody id="shareBody"></tbody>
+    </table>
+  </div>
+  <div class="share-footer">由「港漫目录」工具生成 · 基于完整数据源</div>
+</div>
+
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">📋 已选子表单</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <table>
+        <thead><tr id="modalHead"></tr></thead>
+        <tbody id="modalBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-share" onclick="createShareLink()">🔗 创建分享链接</button>
+      <button class="btn-modal-close" onclick="closeModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var RAW = {"headers": ["#", "编号", "漫画名", "作者 / 作画", "卷数"], "data": [{"_idx": 0, "cells": ["11", "都市  B", "", "", ""]}, {"_idx": 1, "cells": ["12", "B.001", "赌圣传奇 ", "司徒剑桥", "158卷全"]}, {"_idx": 2, "cells": ["13", "B.002", "鬼书皇-我若为皇系列 ", "伦裕国", "5本合订本"]}, {"_idx": 3, "cells": ["14", "B.003", "老夫子年代大全集 ", "王泽", "30卷全"]}, {"_idx": 4, "cells": ["15", "B.004", "百鬼夜行", "多作者", "22卷全"]}, {"_idx": 5, "cells": ["16", "B.005", "百分百感觉", "刘文杰", "16卷全"]}, {"_idx": 6, "cells": ["17", "B.006", "超级警察", "梁伟杰", "4卷全"]}, {"_idx": 7, "cells": ["18", "B.007", "鬼幕", "马荣成", "2卷全"]}, {"_idx": 8, "cells": ["19", "B.008", "火种 ", "欧瑞新", "全47卷"]}, {"_idx": 9, "cells": ["20", "B.009", "老夫子-水浒传", "王泽", "全3卷"]}, {"_idx": 10, "cells": ["21", "B.010", "乌鸦【中漫版】", "邱瑞新", "全20卷"]}, {"_idx": 11, "cells": ["22", "B.011", "小流文", "黄玉郎", "全5卷"]}, {"_idx": 12, "cells": ["23", "B.012", "飙", "温日良", "全5卷"]}, {"_idx": 13, "cells": ["24", "B.013", "马王", "刘定坚", "全50卷"]}, {"_idx": 14, "cells": ["25", "B.014", "霹雳", "黄玉郎", "全8卷"]}, {"_idx": 15, "cells": ["26", "B.015", "龙虎帅", "温日良", "全4卷"]}, {"_idx": 16, "cells": ["27", "B.016", "爱杀", "狄克", "全87卷"]}, {"_idx": 17, "cells": ["28", "B.017", "如月车站【龙虾版】", "郑健和", "全3卷"]}, {"_idx": 18, "cells": ["29", "B.018", "灭火群龙【龙虾版】 ", "黄玉郎", "全8卷"]}, {"_idx": 19, "cells": ["30", "B.019", "路西法【飞雪版】", "郑健和", "全4卷"]}, {"_idx": 20, "cells": ["31", "B.020", "饿狼传说-3【中漫版】 ", "细宝", "全6卷"]}, {"_idx": 21, "cells": ["32", "B.021", "大灾难师【中漫版】", "一锋", "全10卷"]}, {"_idx": 22, "cells": ["33", "B.022", "万人夜话", "潘邵聪", "全6卷"]}, {"_idx": 23, "cells": ["34", "B.023", "涉谷爱情【中漫版】", "永仁&蔡景东", "全8卷"]}, {"_idx": 24, "cells": ["35", "B.024", "凶兽武者RICO【中漫版】", "钟国光", "全4卷"]}, {"_idx": 25, "cells": ["36", "B.025", "凶兽武者Ⅱ【谁在乎版】", "钟国光", "全5卷"]}, {"_idx": 26, "cells": ["37", "B.026", "足球神射手【中漫版】", "郑健和", "全4卷"]}, {"_idx": 27, "cells": ["38", "B.027", "野狼与玛莉【至酷版】", "邓志辉", "全3卷"]}, {"_idx": 28, "cells": ["39", "B.028", "脱北者【谁在乎版】", "邓志辉", "全3卷"]}, {"_idx": 29, "cells": ["40", "B.029", "灭神密码【谁在乎版】", "海洋二号", "全4卷"]}, {"_idx": 30, "cells": ["41", "B.030", "黑漫画【中漫版】", "邱福龙", "全4卷"]}, {"_idx": 31, "cells": ["42", "B.031", "自强不息", "邝彬强", "全6卷"]}, {"_idx": 32, "cells": ["43", "", "", "", ""]}, {"_idx": 33, "cells": ["44", "格斗  E", "", "", ""]}, {"_idx": 34, "cells": ["45", "E.001", "超霸世纪 ", "许景琛", "37卷全"]}, {"_idx": 35, "cells": ["46", "E.002", "美女特工001 ", "黄玉郎", "46卷全"]}, {"_idx": 36, "cells": ["47", "E.003", "赤蝎13 ", "许景琛", "72卷全"]}, {"_idx": 37, "cells": ["48", "E.004", "功夫 ", "邱福龙", "36卷全"]}, {"_idx": 38, "cells": ["49", "E.005", "黑豹列传 【AI修复版】", "马荣成", "900卷全"]}, {"_idx": 39, "cells": ["50", "E.006", "街霸Ⅲ ", "许景琛", "115卷全"]}, {"_idx": 40, "cells": ["51", "E.007", "街头霸王 ", "许景琛", "113卷全"]}, {"_idx": 41, "cells": ["52", "E.008", "精武门 ", "单汉勋", "6卷全"]}, {"_idx": 42, "cells": ["53", "E.009", "龙虎五世 Ⅰ", "黄玉郎", "100卷全"]}, {"_idx": 43, "cells": ["54", "", "龙虎五世 Ⅱ", "黄玉郎", "51卷全"]}, {"_idx": 44, "cells": ["55", "", "龙虎五世 Ⅲ", "黄玉郎", "38卷全"]}, {"_idx": 45, "cells": ["56", "E.010", "神兵斗者 ", "司徒剑桥", "4卷全"]}, {"_idx": 46, "cells": ["57", "E.011", "神兵玄奇1", "黄玉郎", "全146卷"]}, {"_idx": 47, "cells": ["58", "", "神兵玄奇2", "黄玉郎", "全100卷"]}, {"_idx": 48, "cells": ["59", "", "神兵玄奇3", "黄玉郎", "全78卷"]}, {"_idx": 49, "cells": ["60", "", "神兵玄奇3.5", "黄玉郎", "全111卷"]}, {"_idx": 50, "cells": ["61", "", "神兵玄奇4", "黄玉郎", "全72卷"]}, {"_idx": 51, "cells": ["62", "", "神兵前传-1-巅峰终战", "黄玉郎", "全16卷"]}, {"_idx": 52, "cells": ["63", "", "神兵前传-2-不滅傳說", "黄玉郎", "全24卷"]}, {"_idx": 53, "cells": ["64", "", "神兵前传-3-乱世英雄", "黄玉郎", "全24卷"]}, {"_idx": 54, "cells": ["65", "", "神兵前传-4-玄天邪帝", "黄玉郎", "全15卷"]}, {"_idx": 55, "cells": ["66", "", "神兵前传-5-万神之神", "黄玉郎", "全8卷"]}, {"_idx": 56, "cells": ["67", "", "神兵外传", "黄玉郎", "全28卷"]}, {"_idx": 57, "cells": ["68", "", "神兵问天", "黄玉郎", "全36卷"]}, {"_idx": 58, "cells": ["69", "", "神兵科幻纪", "黄玉郎", "全4卷"]}, {"_idx": 59, "cells": ["70", "", "神兵玄奇F1清末篇", "黄玉郎", "全14卷"]}, {"_idx": 60, "cells": ["71", "", "神兵玄奇F2二战篇", "黄玉郎", "全10卷"]}, {"_idx": 61, "cells": ["72", "", "天妖玄奇", "黄玉郎", "全52卷"]}, {"_idx": 62, "cells": ["73", "", "神兵新传-创世神兵 ", "黄玉郎", "40卷全"]}, {"_idx": 63, "cells": ["74", "E.012", "神之领域 ", "司徒剑桥", "全37卷"]}, {"_idx": 64, "cells": ["75", "E.013", "天煞狂刀Ⅰ", "温日良", "全48卷"]}, {"_idx": 65, "cells": ["76", "", "天煞狂刀Ⅱ", "温日良", "全24卷"]}, {"_idx": 66, "cells": ["77", "E.014", "铁拳TEKKEN 3 ", "戇男", "全48卷"]}, {"_idx": 67, "cells": ["78", "E.015", "新著铁血螳螂 ", "黄玉郎", "全12卷"]}, {"_idx": 68, "cells": ["79", "E.016", "英雄无泪 ", "马荣成", "全203卷"]}, {"_idx": 69, "cells": ["80", "E.017", "中华英雄前传", "马荣成", "全43卷"]}, {"_idx": 70, "cells": ["81", "", "中华英雄复刻版", "马荣成", "全145卷"]}, {"_idx": 71, "cells": ["82", "E.018", "旧著醉拳 ", "黄玉郎", "全800卷"]}, {"_idx": 72, "cells": ["83", "E.019", "拳皇 Z", "司徒剑侨", "全45卷"]}, {"_idx": 73, "cells": ["84", "", "拳皇96", "邝世杰", "全36卷"]}, {"_idx": 74, "cells": ["85", "", "拳皇97", "邝世杰", "全52卷"]}, {"_idx": 75, "cells": ["86", "", "拳皇98", "邝世杰", "全44卷"]}, {"_idx": 76, "cells": ["87", "", "拳皇99", "许景琛", "全38卷"]}, {"_idx": 77, "cells": ["88", "", "拳皇2000 OX", "司徒剑桥", "全14卷"]}, {"_idx": 78, "cells": ["89", "", "拳皇2000", "司徒剑桥", "全40卷"]}, {"_idx": 79, "cells": ["90", "E.020", "赤柱饭堂【三部曲】 ", "温日良", "全54卷"]}, {"_idx": 80, "cells": ["91", "E.021", "风雷Ⅰ", "郑健和", "全40卷"]}, {"_idx": 81, "cells": ["92", "", "风雷Ⅱ", "郑健和", "全10卷"]}, {"_idx": 82, "cells": ["93", "E.022", "末日战狼 ", "邓志辉", "全78卷"]}, {"_idx": 83, "cells": ["94", "E.023", "英雄十八 ", "黄玉郎", "全56卷"]}, {"_idx": 84, "cells": ["95", "E.024", "大地之王", "胡绍权", "全12卷"]}, {"_idx": 85, "cells": ["96", "E.025", "新著中华英雄", "邝彬强", "全28卷"]}, {"_idx": 86, "cells": ["97", "E.026", "龙虎五世三世仇", "黄玉郎", "全43卷"]}, {"_idx": 87, "cells": ["98", "E.027", "红番区（红番战士） ", "牛佬", "全4卷"]}, {"_idx": 88, "cells": ["99", "E.028", "少年街霸3 ", "许景琛", "全40卷"]}, {"_idx": 89, "cells": ["100", "E.029", "黑侠传奇", "利志达", "全6卷"]}, {"_idx": 90, "cells": ["101", "E.030", "拳皇XII-漫画版【八神庵版】", "邱福龙", "全12卷"]}, {"_idx": 91, "cells": ["102", "E.031", "大军阀", "邓志辉", "全55卷"]}, {"_idx": 92, "cells": ["103", "E.032", "亚洲雄狮", "海洋二号", "全10卷"]}, {"_idx": 93, "cells": ["104", "E.033", "杀手", "曹志豪", "全11卷"]}, {"_idx": 94, "cells": ["105", "E.034", "风火海", "袁家宝", "全8卷"]}, {"_idx": 95, "cells": ["106", "E.035", "霹雳狂龙", "叶明发", "全12卷"]}, {"_idx": 96, "cells": ["107", "E.036", "X 暴族-Ⅱ ", "冯志明", "全21卷"]}, {"_idx": 97, "cells": ["108", "E.037", "杀手日记 ", "温日良", "全4卷"]}, {"_idx": 98, "cells": ["109", "E.038", "波动拳-Z ", "司徒剑桥", "全16卷"]}, {"_idx": 99, "cells": ["110", "E.039", "黄玉郎醉拳", "邱福龙", "全31卷"]}, {"_idx": 100, "cells": ["111", "E.040", "拳皇新传", "永仁&蔡景东", "全8卷"]}, {"_idx": 101, "cells": ["112", "E.041", "街頭霸王-EX2", "许景琛", "全38卷"]}, {"_idx": 102, "cells": ["113", "E.042", "拳道【龙虾版】", "司徒剑桥", "全12卷"]}, {"_idx": 103, "cells": ["114", "E.043", "集结号【龙虾版】", "海洋二号", "全1卷"]}, {"_idx": 104, "cells": ["115", "E.044", "超武斗传【龙虾版】", "陈伟文", "全5卷"]}, {"_idx": 105, "cells": ["116", "E.045", "末世北斗【龙虾版】", "温日良", "全2卷"]}, {"_idx": 106, "cells": ["117", "E.046", "集结号2：月战【龙虾版】 ", "温日良", "全4卷"]}, {"_idx": 107, "cells": ["118", "E.047", "EGO欲望之翼【龙虾版】 ", "黄水斌", "全4卷"]}, {"_idx": 108, "cells": ["119", "E.048", "海洋疯狂", "海洋作品", "全8卷"]}, {"_idx": 109, "cells": ["120", "E.049", "暴拳凶星【龙虾版】", "郑健和", "全4卷"]}, {"_idx": 110, "cells": ["121", "E.050", "格斗拳王【中漫版】", "袁家宝", "全13卷"]}, {"_idx": 111, "cells": ["122", "E.051", "凶兽狂刀【中漫版】", "海洋二号", "全36卷"]}, {"_idx": 112, "cells": ["123", "E.052", "街霸 Ⅳ-外传", "许景琛", "全15卷"]}, {"_idx": 113, "cells": ["124", "E.053", "拳斗【飞雪版】", "叶明发", "全41卷"]}, {"_idx": 114, "cells": ["125", "E.054", "街霸zero-Ⅱ ", "许景琛", "全4卷"]}, {"_idx": 115, "cells": ["126", "E.055", "我是中国人李小龙【龙虾版】", "胡绍权", "全4卷"]}, {"_idx": 116, "cells": ["127", "E.056", "蝎王（赤蝎第2部）【中漫版】", "许景琛", "全52卷"]}, {"_idx": 117, "cells": ["128", "E.057", "X 暴族-Ⅰ【龙虾版】", "冯志明", "全69卷"]}, {"_idx": 118, "cells": ["129", "E.058", "赤蝎斗魂【谁在乎版】", "许景琛", "全11卷"]}, {"_idx": 119, "cells": ["130", "E.059", "方世玉【谁在乎版】", "牛佬", "全6卷"]}, {"_idx": 120, "cells": ["131", "E.060", "东方龙【中漫版】", "邝彬强", "全9卷"]}, {"_idx": 121, "cells": ["132", "E.061", "拳皇FXO", "永仁&蔡景东", "全8卷"]}, {"_idx": 122, "cells": ["133", "E.062", "私立学园【中漫版】", "韦研", "全15卷"]}, {"_idx": 123, "cells": ["134", "E.063", "龙虎五世三世仇-Ⅱ ", "黄玉郎", "全32卷"]}, {"_idx": 124, "cells": ["135", "E.064", "龙抬头【中漫版】", "袁家宝", "全8卷"]}, {"_idx": 125, "cells": ["136", "E.065", "新著中华英雄2022【修复版】", "袁家宝", "全65卷"]}, {"_idx": 126, "cells": ["137", "E.066", "李小龙 · 截拳【中漫版】", "曹志豪", "全12卷"]}, {"_idx": 127, "cells": ["138", "E.067", "狂刀04【中漫版】 ", "海洋二号", "全14卷"]}, {"_idx": 128, "cells": ["139", "E.068", "街霸vs拳皇【中漫版】 ", "许景琛", "全26卷"]}, {"_idx": 129, "cells": ["140", "E.069", "中华英雄外传【谁在乎版】 ", "叶明发", "全16卷"]}, {"_idx": 130, "cells": ["141", "E.070", "新著中华英雄前传", "郑健和", "全12卷 "]}, {"_idx": 131, "cells": ["142", "", "", "", ""]}, {"_idx": 132, "cells": ["143", "江湖  F", "", "", ""]}, {"_idx": 133, "cells": ["144", "F.001", "九龙城寨 Ⅰ", "司徒剑桥", "全32卷"]}, {"_idx": 134, "cells": ["145", "", "九龙城寨 Ⅱ", "司徒剑桥", "全100卷"]}, {"_idx": 135, "cells": ["146", "F.002", "杀道行者 ", "郑健和", "全190卷"]}, {"_idx": 136, "cells": ["147", "F.003", "流氓律师", "刘定坚", "全32卷"]}, {"_idx": 137, "cells": ["148", "F.004", "风流2012", "叶明发", "全8卷"]}, {"_idx": 138, "cells": ["149", "F.005", "雷火洪步", "温日良", "全25卷"]}, {"_idx": 139, "cells": ["150", "F.006", "大佬", "毕亦乐", "全4卷"]}, {"_idx": 140, "cells": ["151", "F.007", "少年陈浩南【龙虾版】", "牛佬", "全96卷"]}, {"_idx": 141, "cells": ["152", "F.008", "铜锣湾揸弗人 ", "朱荣华", "全39卷"]}, {"_idx": 142, "cells": ["153", "F.009", "十大红棍【修复版】", "阿刘", "全21卷"]}, {"_idx": 143, "cells": ["154", "F.010", "女红棍 ", "朱荣华", "全17卷"]}, {"_idx": 144, "cells": ["155", "F.011", "风暴十三【中漫版】 ", "温日良", "全12卷"]}, {"_idx": 145, "cells": ["156", "F.012", "黑道十优生", "徐大宝", "全8卷"]}, {"_idx": 146, "cells": ["157", "", "", "", ""]}, {"_idx": 147, "cells": ["158", "科幻  G", "", "", ""]}, {"_idx": 148, "cells": ["159", "G.001", "海虎1", "温日良", "全48卷"]}, {"_idx": 149, "cells": ["160", "", "海虎2", "温日良", "全48卷"]}, {"_idx": 150, "cells": ["161", "", "海虎3", "温日良", "全48卷"]}, {"_idx": 151, "cells": ["162", "G.002", "生化危机【港漫系列】 ", "多作者", "多作者版本"]}, {"_idx": 152, "cells": ["163", "G.003", "卫斯理Z ", "许景琛", "全17卷"]}, {"_idx": 153, "cells": ["164", "G.004", "天人-Ⅰ", "司徒剑桥", "全27卷"]}, {"_idx": 154, "cells": ["165", "", "天人-Ⅱ", "司徒剑桥", "全21卷"]}, {"_idx": 155, "cells": ["166", "G.005", "武神", "温日良", "全300卷"]}, {"_idx": 156, "cells": ["167", "", "武神终极", "温日良", "全88卷"]}, {"_idx": 157, "cells": ["168", "", "武神前传-灭世之战", "温日良", "全1卷"]}, {"_idx": 158, "cells": ["169", "", "武神-海虎地狱", "温日良", "全50卷"]}, {"_idx": 159, "cells": ["170", "", "武神凤凰", "温日良", "全138卷"]}, {"_idx": 160, "cells": ["171", "", "武神飞天", "温日良", "全60卷"]}, {"_idx": 161, "cells": ["172", "", "武神108", "温日良", "全24卷"]}, {"_idx": 162, "cells": ["173", "", "武神外传-白乾坤", "温日良", "全2卷"]}, {"_idx": 163, "cells": ["174", "", "武神外传-神风英雄", "温日良", "全4卷"]}, {"_idx": 164, "cells": ["175", "", "武神外传-天王剑", "温日良", "全1卷"]}, {"_idx": 165, "cells": ["176", "", "武神外传-武神飞沙", "温日良", "全4卷"]}, {"_idx": 166, "cells": ["177", "", "武神外传-武神凶兽", "温日良", "全1卷"]}, {"_idx": 167, "cells": ["178", "G.006", "生化危机2", "毕亦乐", "全60卷"]}, {"_idx": 168, "cells": ["179", "G.007", "夜魔煞星", "余健培", "全17卷"]}, {"_idx": 169, "cells": ["180", "G.008", "超神Z ", "司徒剑桥", "全10卷"]}, {"_idx": 170, "cells": ["181", "G.009", "笑傲星河", "何志文", "全8卷"]}, {"_idx": 171, "cells": ["182", "G.010", "剑始虎", "叶明发", "全5卷"]}, {"_idx": 172, "cells": ["183", "G.011", "生化危机3-龙虾版", "许景琛", "全26卷"]}, {"_idx": 173, "cells": ["184", "G.012", "蝙蝠侠-龙虾版", "黄玉郎", "全3卷"]}, {"_idx": 174, "cells": ["185", "G.013", "极渡川流【龙虾版】", "邝彬强", "全4卷"]}, {"_idx": 175, "cells": ["186", "G.014", "暴力中毒【龙虾版】", "马荣成", "全6卷"]}, {"_idx": 176, "cells": ["187", "G.015", "绝地天行【谁在乎版】", "郑健和", "全8卷"]}, {"_idx": 177, "cells": ["188", "G.016", "机甲猿神【中漫版】", "司徒剑桥", "全4卷"]}, {"_idx": 178, "cells": ["189", "G.017", "蓝道无间", "许景琛", "全6卷"]}, {"_idx": 179, "cells": ["190", "G.018", "龙少年【龙虾版】 ", "永仁&蔡景东", "全59卷"]}, {"_idx": 180, "cells": ["191", "G.019", "海虎无限", "温日良", "全48卷"]}, {"_idx": 181, "cells": ["192", "", "", "", ""]}, {"_idx": 182, "cells": ["193", "历史  O", "", "", ""]}, {"_idx": 183, "cells": ["194", "O.001", "不是人【附外传】 ", "陈某", "台版 / 全2卷"]}, {"_idx": 184, "cells": ["195", "O.002", "刺皇 ", "邱福龙", "全20卷"]}, {"_idx": 185, "cells": ["196", "O.003", "火凤燎原【未完结】 ", "陈某", "台版 / 全76卷"]}, {"_idx": 186, "cells": ["197", "O.004", "鹿鼎记【黄玉郎版】", "黄玉郎", "全60卷"]}, {"_idx": 187, "cells": ["198", "O.005", "孙子兵法 ", "李志清", "全10卷"]}, {"_idx": 188, "cells": ["199", "O.006", "天子传奇1-开周篇", "黄玉郎", "全163卷"]}, {"_idx": 189, "cells": ["200", "", "天子传奇2-秦王篇", "黄玉郎", "全26卷"]}, {"_idx": 190, "cells": ["201", "", "天子传奇3-流氓天子篇", "黄玉郎", "全63卷"]}, {"_idx": 191, "cells": ["202", "", "天子传奇4-大唐威龙篇", "黄玉郎", "全102卷"]}, {"_idx": 192, "cells": ["203", "", "天子传奇5-如来神掌篇", "黄玉郎", "全214卷"]}, {"_idx": 193, "cells": ["204", "", "天子传奇6-洪武大帝", "黄玉郎", "全186卷"]}, {"_idx": 194, "cells": ["205", "", "天子传奇7-三国骄皇", "黄玉郎", "全52卷"]}, {"_idx": 195, "cells": ["206", "", "天子传奇8-苍天霸皇", "黄玉郎", "全70卷"]}, {"_idx": 196, "cells": ["207", "O.007", "寻秦记 ", "廖福成", "全199卷"]}, {"_idx": 197, "cells": ["208", "O.008", "一零八108Fighters ", "司徒剑侨", "全21卷"]}, {"_idx": 198, "cells": ["209", "O.009", "三国神兵", "叶明发", "全25卷"]}, {"_idx": 199, "cells": ["210", "O.010", "荆楚争雄记", "周圣", "全8卷"]}, {"_idx": 200, "cells": ["211", "O.011", "战谱", "邝彬强", "全20卷"]}, {"_idx": 201, "cells": ["212", "O.012", "鹿鼎记【林政德版】", "林政德", "全8卷"]}, {"_idx": 202, "cells": ["213", "O.013", "皇朝传奇", "牛佬", "全22卷"]}, {"_idx": 203, "cells": ["214", "O.014", "黄帝传奇 ", "袁家宝", "全5卷"]}, {"_idx": 204, "cells": ["215", "O.015", "水浒战魂 ", "叶明发", "全21卷"]}, {"_idx": 205, "cells": ["216", "O.016", "岳飞列传【谁在乎版】", "许景琛", "全10卷"]}, {"_idx": 206, "cells": ["217", "O.017", "武霸三國【修复版】", "永仁&蔡景东", "全12卷"]}, {"_idx": 207, "cells": ["218", "O.018", "侍魂-魔界轮回记", "冯志明", "全8卷"]}, {"_idx": 208, "cells": ["219", "O.019", "侍魂-天草降临", "吴文辉", "全22卷"]}, {"_idx": 209, "cells": ["220", "O.020", "巨龙列传【中漫版】", "张万友", "全9卷"]}, {"_idx": 210, "cells": ["221", "O.021", "侏罗纪战士 ", "卡肥", "全2卷"]}, {"_idx": 211, "cells": ["222", "O.022", "火凤燎原【珍藏版】", "陈某", "至25卷"]}, {"_idx": 212, "cells": ["223", "", "", "", ""]}, {"_idx": 213, "cells": ["224", "神魔  L", "", "", ""]}, {"_idx": 214, "cells": ["225", "L.001", "八仙道", "司徒剑桥", "全124卷 "]}, {"_idx": 215, "cells": ["226", "L.002", "大圣王 ", "黄玉郎", "全157卷 "]}, {"_idx": 216, "cells": ["227", "L.003", "封神纪（武庚纪）Ⅰ", "郑健和 ", "全38卷 "]}, {"_idx": 217, "cells": ["228", "", "封神纪（武庚纪）Ⅱ", "郑健和 ", "全64卷 "]}, {"_idx": 218, "cells": ["229", "", "封神纪（武庚纪）Ⅲ", "郑健和 ", "全80卷 "]}, {"_idx": 219, "cells": ["230", "L.004", "六道天书 ", "司徒剑桥", "全50卷 "]}, {"_idx": 220, "cells": ["231", "L.005", "龙神 ", "邱福龙", "全58卷 "]}, {"_idx": 221, "cells": ["232", "L.006", "山海逆战 ", "邱福龙", "全343卷 "]}, {"_idx": 222, "cells": ["233", "L.007", "神王Ⅰ+Ⅱ ", "马荣成", "全12卷 "]}, {"_idx": 223, "cells": ["234", "L.008", "西行纪 Ⅰ【01-112卷】", "郑健和 ", "全112卷 "]}, {"_idx": 224, "cells": ["235", "", "西行纪 Ⅱ【113-183卷】", "郑健和 ", "全71卷 "]}, {"_idx": 225, "cells": ["236", "", "西行纪 前传-大猿魂【tx版】", "郑健和 ", "全78卷 "]}, {"_idx": 226, "cells": ["237", "", "西行纪 前传-狂王【tx版】", "郑健和 ", "全32卷 "]}, {"_idx": 227, "cells": ["238", "", "西行纪 外传-黑天龙【tx版】", "郑健和 ", "全52卷 "]}, {"_idx": 228, "cells": ["239", "L.009", "小魔神 ", "邱福龙", "全102卷 "]}, {"_idx": 229, "cells": ["240", "L.010", "新大霹雳 ", "黄玉郎", "全14卷 "]}, {"_idx": 230, "cells": ["241", "L.011", "佣兵天下 ", "黄玉郎", "全25卷 "]}, {"_idx": 231, "cells": ["242", "L.012", "红日之樱", "邱瑞新", "全6卷 "]}, {"_idx": 232, "cells": ["243", "L.013", "魔神传I", "郑健和 ", "全3卷 "]}, {"_idx": 233, "cells": ["244", "", "魔神传II", "郑健和 ", "全5卷 "]}, {"_idx": 234, "cells": ["245", "", "魔神传III", "郑健和", "全33卷 "]}, {"_idx": 235, "cells": ["246", "L.014", "孔雀明王", "叶明发", "全5卷"]}, {"_idx": 236, "cells": ["247", "L.015", "相神传", "庞重辉", "全4卷"]}, {"_idx": 237, "cells": ["248", "L.016", "幻城", "司徒剑桥", "全16卷"]}, {"_idx": 238, "cells": ["249", "L.017", "域外天魔", "夏伟义", "全2卷"]}, {"_idx": 239, "cells": ["250", "L.018", "封神", "蔡景东", "全94卷"]}, {"_idx": 240, "cells": ["251", "L.019", "天行武者", "许景琛", "全10卷"]}, {"_idx": 241, "cells": ["252", "L.020", "春秋猛士【龙虾版】", "黄玉郎", "全16卷"]}, {"_idx": 242, "cells": ["253", "L.021", "霹雳龙神", "胡绍权", "全12卷"]}, {"_idx": 243, "cells": ["254", "L.022", "大霹雳【中漫版】", "郑问", "全20卷"]}, {"_idx": 244, "cells": ["255", "L.023", "龙神-前传【谁在乎版】", "邱福龙", "全5卷"]}, {"_idx": 245, "cells": ["256", "L.024", "玄门神鉴【弹指版】 ", "黄伟健", "全10卷"]}, {"_idx": 246, "cells": ["257", "L.025", "天外玄侠【弹指版-修复】", "许景琛", "全33卷"]}, {"_idx": 247, "cells": ["258", "L.026", "我和僵尸有个约会 ", "郑健和 ", "全8卷"]}, {"_idx": 248, "cells": ["259", "L.027", "鬼王天弓传【龙虾版】", "海洋二号", "全1卷"]}, {"_idx": 249, "cells": ["260", "L.028", "笑话西游", "黄兴猪", "全8卷"]}, {"_idx": 250, "cells": ["261", "L.029", "恶灵王【中漫版】 ", "许景深", "全7卷"]}, {"_idx": 251, "cells": ["262", "L.030", "魔域战士【谁在乎版】", "米奇", "全25卷"]}, {"_idx": 252, "cells": ["263", "L.031", "兽神【中漫版】", "陈佳华", "全7卷"]}, {"_idx": 253, "cells": ["264", "L.032", "皇者无敌【中漫版】", "伦裕国", "全19卷"]}, {"_idx": 254, "cells": ["265", "L.033", "灭绝游戏【中漫版】", "戴庆贤&梁伟家", "全2卷"]}, {"_idx": 255, "cells": ["266", "", "", "", ""]}, {"_idx": 256, "cells": ["267", "武侠  N", "", "", ""]}, {"_idx": 257, "cells": ["268", "N.001", "霸刀", "冯志明", "全800卷"]}, {"_idx": 258, "cells": ["269", "", "霸刀-外传", "冯志明", "全12卷"]}, {"_idx": 259, "cells": ["270", "N.002", "边荒传说 ", "黄玉郎", "全33卷"]}, {"_idx": 260, "cells": ["271", "N.003", "春秋战雄 ", "黄玉郎", "全344卷"]}, {"_idx": 261, "cells": ["272", "N.004", "大剑师 ", "黄玉郎", "全32卷"]}, {"_idx": 262, "cells": ["273", "N.005", "大唐双龙传 ", "黄玉郎", "全252卷"]}, {"_idx": 263, "cells": ["274", "N.006", "刀剑笑", "冯志明", "全386卷"]}, {"_idx": 264, "cells": ["275", "", "刀剑笑狂沙", "冯志明", "全120卷"]}, {"_idx": 265, "cells": ["276", "N.007", "刀剑新传 ", "永仁&蔡景东", "全37卷"]}, {"_idx": 266, "cells": ["277", "N.008", "风云【三部曲】", "马荣成", "全675卷"]}, {"_idx": 267, "cells": ["278", "N.009", "覆雨翻云Ⅰ", "廖福成", "全22卷"]}, {"_idx": 268, "cells": ["279", "", "覆雨翻云Ⅱ", "廖福成", "全186卷"]}, {"_idx": 269, "cells": ["280", "N.010", "古龙豪侠传 ", "许景琛", "全30卷"]}, {"_idx": 270, "cells": ["281", "N.011", "古龙群侠传 ", "岑卓华", "全85卷"]}, {"_idx": 271, "cells": ["282", "N.012", "火云邪神传 ", "黄玉郎", "全100卷"]}, {"_idx": 272, "cells": ["283", "N.013", "旧如来神掌 ", "黄玉郎", "全720卷"]}, {"_idx": 273, "cells": ["284", "N.014", "绝代双骄[第1部]", "何志文", "全177卷"]}, {"_idx": 274, "cells": ["285", "", "绝代双骄[第2部]", "何志文", "全390卷"]}, {"_idx": 275, "cells": ["286", "N.015", "绝世无双【龙虾版】", "何志文", "全196卷"]}, {"_idx": 276, "cells": ["287", "N.016", "义勇门 ", "黄玉郎", "全72卷"]}, {"_idx": 277, "cells": ["288", "N.017", "倚天屠龙记 ", "马荣成", "全100卷"]}, {"_idx": 278, "cells": ["289", "N.018", "雪山飞狐 ", "马荣成", "全20卷"]}, {"_idx": 279, "cells": ["290", "N.019", "轩辕剑 ", "永仁&蔡景东", "全18卷"]}, {"_idx": 280, "cells": ["291", "N.020", "邪神Ⅰ", "曹志豪", "全20卷"]}, {"_idx": 281, "cells": ["292", "", "邪神Ⅱ", "曹志豪", "全8卷"]}, {"_idx": 282, "cells": ["293", "N.021", "笑傲江湖", "李志清", "全26卷"]}, {"_idx": 283, "cells": ["294", "N.022", "七种武器 ", "马荣成", "全66卷"]}, {"_idx": 284, "cells": ["295", "N.023", "侠客行 ", "黄玉郎", "全27卷"]}, {"_idx": 285, "cells": ["296", "N.024", "温瑞安群侠传 Ⅰ", "司徒剑桥", "全93卷"]}, {"_idx": 286, "cells": ["297", "", "温瑞安群侠传 Ⅱ", "司徒剑桥", "全43卷"]}, {"_idx": 287, "cells": ["298", "N.025", "天下无敌 ", "胡绍权", "全16卷"]}, {"_idx": 288, "cells": ["299", "N.026", "天龙八部 ", "黄玉郎", "全100卷"]}, {"_idx": 289, "cells": ["300", "N.027", "天蚕变 ", "建君", "全21卷"]}, {"_idx": 290, "cells": ["301", "N.028", "四大名捕 ", "司徒剑桥", "全371卷"]}, {"_idx": 291, "cells": ["302", "N.029", "书剑恩仇录 ", "何志文", "全30卷"]}, {"_idx": 292, "cells": ["303", "N.030", "神州奇侠 ", "黄玉郎", "全32卷"]}, {"_idx": 293, "cells": ["304", "N.031", "神掌龙剑飞 ", "黄玉郎", "全72卷"]}, {"_idx": 294, "cells": ["305", "N.032", "神雕侠侣 ", "黄玉郎", "全86卷"]}, {"_idx": 295, "cells": ["306", "N.033", "少林寺第八铜人", "邱福龙", "全60卷"]}, {"_idx": 296, "cells": ["307", "", "少林寺第八铜人-外传", "邱福龙", "全16卷"]}, {"_idx": 297, "cells": ["308", "N.034", "大宗师 ", "上官小宝", "全15卷"]}, {"_idx": 298, "cells": ["309", "N.035", "新著铁将纵横 ", "邱福龙", "全247卷"]}, {"_idx": 299, "cells": ["310", "N.036", "神武纪Ⅰ（风云新传）", "马荣成", "全9卷"]}, {"_idx": 300, "cells": ["311", "", "神武纪Ⅱ（风云新传）", "马荣成", "全40卷"]}, {"_idx": 301, "cells": ["312", "N.037", "王小龙传-Ⅰ", "黄玉郎", "全20卷"]}, {"_idx": 302, "cells": ["313", "", "王小龙传-Ⅱ", "黄玉郎", "全37卷"]}, {"_idx": 303, "cells": ["314", "N.038", "王风雷传奇 ", "袁家宝", "全12卷"]}, {"_idx": 304, "cells": ["315", "N.039", "新著龙虎门【未完结】 ", "黄玉郎", "全1275卷"]}, {"_idx": 305, "cells": ["316", "N.040", "天下无敌小剑仙 ", "叶明发", "全33卷"]}, {"_idx": 306, "cells": ["317", "N.041", "龙虎门外传-慈云山七鹰 ", "牛佬", "全8卷"]}, {"_idx": 307, "cells": ["318", "N.042", "天极", "马荣成", "全37卷"]}, {"_idx": 308, "cells": ["319", "N.043", "新著龙虎门外传-东方真龙 ", "黄玉郎", "全66卷"]}, {"_idx": 309, "cells": ["320", "N.044", "天极阎王", "马荣成", "全8卷"]}, {"_idx": 310, "cells": ["321", "N.045", "石黑龙传【三部曲】 ", "黄玉郎", "全93卷"]}, {"_idx": 311, "cells": ["322", "N.046", "新著龙虎门前传-火云邪神传 ", "黄玉郎", "全100卷"]}, {"_idx": 312, "cells": ["323", "N.047", "魔武渡 ", "邝彬强", "全22卷"]}, {"_idx": 313, "cells": ["324", "N.048", "大侠传奇（神州后传） ", "冯志明", "全52卷"]}, {"_idx": 314, "cells": ["325", "N.049", "陆小凤", "蔡景东", "全23卷"]}, {"_idx": 315, "cells": ["326", "N.050", "风云电影Ⅱ漫画版 ", "马荣成", "全5卷"]}, {"_idx": 316, "cells": ["327", "N.051", "霸剑", "刘定坚", "全5卷"]}, {"_idx": 317, "cells": ["328", "N.052", "白发鬼", "司徒剑桥", "全2卷"]}, {"_idx": 318, "cells": ["329", "N.053", "说英雄谁是英雄", "叶明发", "全16卷"]}, {"_idx": 319, "cells": ["330", "N.054", "神掌", "黄玉郎", "全24卷"]}, {"_idx": 320, "cells": ["331", "N.055", "古龙少侠传 ", "岑卓华", "全8卷"]}, {"_idx": 321, "cells": ["332", "N.056", "沈胜衣传奇【龙虾版】 ", "叶明发", "全8卷"]}, {"_idx": 322, "cells": ["333", "N.057", "射雕英雄传 ", "黄玉郎", "全100卷"]}, {"_idx": 323, "cells": ["334", "N.058", "皇朝君临【龙虾版】", "黄玉郎", "全36卷"]}, {"_idx": 324, "cells": ["335", "N.059", "七侠五义【中漫版】", "憨男", "全12卷"]}, {"_idx": 325, "cells": ["336", "N.060", "幽灵山庄【龙虾版】", "陈景团", "全18卷"]}, {"_idx": 326, "cells": ["337", "N.061", "王风雷传-Ⅰ", "黄玉郎", "全60卷"]}, {"_idx": 327, "cells": ["338", "N.062", "风云外传之天下无双【龙虾版】 ", "郑问", "全1卷"]}, {"_idx": 328, "cells": ["339", "N.063", "神掌龙九州 ", "牛佬", "全10卷"]}, {"_idx": 329, "cells": ["340", "N.064", "电影龙虎门【龙虾版】", "黄玉郎", "全18卷"]}, {"_idx": 330, "cells": ["341", "N.065", "绝世无双-Ⅱ【中漫版】", "何志文", "全128卷"]}, {"_idx": 331, "cells": ["342", "N.066", "天龙八部外传-慕容世家【龙虾版】", "黄玉郎", "全9卷"]}, {"_idx": 332, "cells": ["343", "N.067", "风林火山", "郑健和", "全3卷"]}, {"_idx": 333, "cells": ["344", "N.068", "龙虎风暴【中漫版】", "庞重辉", "全11卷"]}, {"_idx": 334, "cells": ["345", "N.069", "武尊少林【弹指版】", "叶明发", "全7卷"]}, {"_idx": 335, "cells": ["346", "N.070", "沈虎禅大传【中漫版】 ", "叶明发", "全12卷"]}, {"_idx": 336, "cells": ["347", "N.071", "惊神【中漫版】", "李志清", "全12卷"]}, {"_idx": 337, "cells": ["348", "N.072", "天外飞魔【中漫版】 ", "温日良", "全4卷"]}, {"_idx": 338, "cells": ["349", "N.073", "虎男", "许景琛", "全8卷"]}, {"_idx": 339, "cells": ["350", "N.074", "七种武器之离别钩【中漫版】", "周胜", "全7卷"]}, {"_idx": 340, "cells": ["351", "N.075", "王风雷传-Ⅱ", "黄玉郎", "全48卷"]}, {"_idx": 341, "cells": ["352", "N.076", "射雕英雄传 x 李志清", "李志清", "全19卷"]}, {"_idx": 342, "cells": ["353", "N.077", "红狼【中漫版】 ", "邝彬强", "全6卷"]}, {"_idx": 343, "cells": ["354", "N.078", "戆男故事【更新至100卷】 ", "戆男&刘定坚", "至100卷"]}, {"_idx": 344, "cells": ["355", "N.079", "笑傲江湖【新版】 ", "李志清", "全13卷"]}, {"_idx": 345, "cells": ["356", "N.080", "天下无敌剑邪神【龙虾版】 ", "叶明发", "全8卷"]}, {"_idx": 346, "cells": ["357", "N.081", "刀霸天下【中漫版】 ", "细峰", "全12卷"]}, {"_idx": 347, "cells": ["358", "", "", "", ""]}, {"_idx": 348, "cells": ["359", "结尾（漫画实时记录到文档中）", "", "", ""]}, {"_idx": 349, "cells": ["360", "", "", "", ""]}, {"_idx": 350, "cells": ["361", "", "", "", ""]}, {"_idx": 351, "cells": ["362", "", "截图保存 微信扫码关注 感谢支持", "", "无任何广告"]}, {"_idx": 352, "cells": ["363", "", "", "", ""]}, {"_idx": 353, "cells": ["364", "", "", "", ""]}, {"_idx": 354, "cells": ["365", "", "", "", ""]}, {"_idx": 355, "cells": ["366", "", "", "", ""]}, {"_idx": 356, "cells": ["367", "", "截图保存 扫码添加微信 免验证通过", "", ""]}, {"_idx": 357, "cells": ["368", "", "", "", ""]}, {"_idx": 358, "cells": ["369", "", "", "", ""]}, {"_idx": 359, "cells": ["370", "", "", "", ""]}, {"_idx": 360, "cells": ["371", "", "", "", ""]}, {"_idx": 361, "cells": ["372", "", "", "", ""]}, {"_idx": 362, "cells": ["373", "", "", "", ""]}, {"_idx": 363, "cells": ["374", "", "", "", ""]}, {"_idx": 364, "cells": ["375", "", "", "", ""]}, {"_idx": 365, "cells": ["376", "", "", "", ""]}, {"_idx": 366, "cells": ["377", "", "", "", ""]}], "row_colors": ["#000000", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, "#000000", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, "#000000", null, null, null, null, null, null, null, null, null, null, null, null, null, null, "#000000", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, "#000000", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, "#000000", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, "#000000", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null], "freeze_rows": 10};
+var HEADERS = RAW.headers;
+var ALL_DATA = RAW.data;
+var ROW_COLORS = RAW.row_colors || [];
+var FREEZE_ROWS = RAW.freeze_rows || 0;
+
+var selectedSet = new Set();
+
+
+// ═══════ 行号索引编解码 ═══════
+
+/**
+ * 编码：[0,1,2,5,6,7,9] → "0-2,5-7,9"
+ * 连续 3 个及以上的索引压缩为范围
+ */
+function encodeRowIds(ids) {
+  if (ids.length === 0) return '';
+  ids.sort(function(a, b) { return a - b; });
+  var parts = [];
+  var start = ids[0], end = ids[0];
+  for (var i = 1; i < ids.length; i++) {
+    if (ids[i] === end + 1) {
+      end = ids[i];
+    } else {
+      parts.push(start === end ? String(start) : (end - start >= 2 ? start + '-' + end : start + ',' + end));
+      start = end = ids[i];
+    }
+  }
+  parts.push(start === end ? String(start) : (end - start >= 2 ? start + '-' + end : start + ',' + end));
+  return parts.join(',');
+}
+
+/**
+ * 解码："0-2,5,7,9" → [0,1,2,5,7,9]
+ */
+function decodeRowIds(str) {
+  if (!str) return [];
+  var ids = [];
+  var parts = str.split(',');
+  parts.forEach(function(p) {
+    p = p.trim();
+    if (!p) return;
+    var range = p.split('-');
+    if (range.length === 2) {
+      var s = parseInt(range[0]), e = parseInt(range[1]);
+      if (!isNaN(s) && !isNaN(e)) {
+        for (var i = s; i <= e; i++) ids.push(i);
+      }
+    } else {
+      var v = parseInt(p);
+      if (!isNaN(v)) ids.push(v);
+    }
+  });
+  return ids;
+}
+
+// ═══════ 分享模式检测 ═══════
+(function checkShareMode() {
+  var hash = location.hash;
+  var m = hash.match(/^#share=(.+)/);
+  if (!m) return;
+  var ids = decodeRowIds(m[1]);
+  if (ids.length === 0) return;
+
+  // 从内嵌全量数据中提取对应行
+  var selected = [];
+  var found = 0;
+  ids.forEach(function(idx) {
+    if (idx >= 0 && idx < ALL_DATA.length) {
+      selected.push(ALL_DATA[idx]);
+      found++;
+    }
+  });
+  if (found === 0) return;
+  showSharedView(selected);
+})();
+
+function showSharedView(selectedRows) {
+  // 隐藏交互视图，显示分享视图
+  document.getElementById('mainView').style.display = 'none';
+  var fh = document.getElementById('frozenHeader');
+  if (fh) fh.style.display = 'none';
+  document.getElementById('shareView').style.display = 'block';
+
+  // 表头（跳过行号列）
+  var shareHeaders = FREEZE_ROWS > 0 ? HEADERS.slice(1) : HEADERS.slice();
+  var thead = document.getElementById('shareHead');
+  var tr = document.createElement('tr');
+  var nTh = document.createElement('th');
+  nTh.textContent = '#'; nTh.style.cssText = 'text-align:center;width:40px;';
+  tr.appendChild(nTh);
+  shareHeaders.forEach(function(h) {
+    var th = document.createElement('th'); th.textContent = h; tr.appendChild(th);
+  });
+  thead.appendChild(tr);
+
+  // 数据行
+  var tbody = document.getElementById('shareBody');
+  selectedRows.forEach(function(row, i) {
+    var r = document.createElement('tr');
+    var nTd = document.createElement('td');
+    nTd.textContent = i + 1; nTd.style.cssText = 'text-align:center;color:#bbb;font-size:11px;';
+    r.appendChild(nTd);
+    // 跳过行号列（_idx=0 位置）
+    var cells = FREEZE_ROWS > 0 ? row.cells.slice(1) : row.cells.slice();
+    cells.forEach(function(c) {
+      var td = document.createElement('td'); td.textContent = c || ''; r.appendChild(td);
+    });
+    tbody.appendChild(r);
+  });
+
+  document.getElementById('shareTitle').textContent = '已选 \xb7 共 ' + selectedRows.length + ' 行';
+  document.title = '已选子表单 \xb7 ' + selectedRows.length + ' 行';
+}
+
+function exitShareView() {
+  history.replaceState(null, '', location.pathname);
+  location.reload();
+}
+
+// ═══════ 创建分享链接（行号索引） ═══════
+function createShareLink() {
+  var selected = ALL_DATA.filter(function(r) { return selectedSet.has(r._idx); });
+  if (selected.length === 0) { alert('请先选中数据行'); return; }
+
+  var ids = selected.map(function(r) { return r._idx; });
+  var encoded = encodeRowIds(ids);
+  var url = location.origin + location.pathname + '#share=' + encoded;
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(function() {
+      alert('分享链接已复制到剪贴板！(' + selected.length + ' 行)\n\n' +
+            '点击确定后。\n' +
+            '把链接地址直接粘贴到您和卖家的对话框即可。');
+    }).catch(function() {
+      showShareUrlPanel(url, selected.length);
+    });
+  } else {
+    showShareUrlPanel(url, selected.length);
+  }
+}
+
+function showShareUrlPanel(url, count) {
+  var panel = document.createElement('div');
+  panel.style.cssText = 'position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6)';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:12px;width:92%;max-width:600px;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.3)';
+  box.innerHTML = '<div style="padding:16px 20px;background:#1a1a2e;color:#fff;border-radius:12px 12px 0 0;font-size:15px;font-weight:600;">🔗 分享链接（' + count + ' 行数据 · 行号索引）</div>' +
+    '<textarea readonly style="flex:1;min-height:80px;padding:16px;border:none;font-size:13px;font-family:Consolas,monospace;resize:none;outline:none;word-break:break-all">' + url + '</textarea>' +
+    '<div style="padding:12px 20px;border-top:1px solid #eee;display:flex;gap:10px;justify-content:flex-end;background:#fafafa;border-radius:0 0 12px 12px">' +
+    '<button onclick="this.closest(\'div\').parentElement.parentElement.remove()" style="background:#eee;color:#333;padding:7px 18px;border-radius:6px;border:none;cursor:pointer;font-size:13px">关闭</button>' +
+    '<button id="shareCopyBtn" style="background:#e94560;color:#fff;padding:7px 18px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600">📋 复制链接</button></div>';
+  panel.appendChild(box);
+  document.body.appendChild(panel);
+  panel.onclick = function(e) { if(e.target===panel) panel.remove(); };
+  document.getElementById('shareCopyBtn').onclick = function() {
+    var ta = box.querySelector('textarea');
+    ta.select();
+    document.execCommand('copy');
+    alert('已复制！直接发给别人即可。');
+    panel.remove();
+  };
+}
+
+
+(function init(){
+  // 如果处于分享模式，跳过 init
+  if(location.hash.indexOf('#share=') === 0) return;
+  var th=document.getElementById('tableHead'), tr=document.createElement('tr');
+  HEADERS.forEach(function(h,i){
+    var thh=document.createElement('th');
+    if(FREEZE_ROWS > 0 && i === 0){ thh.style.cssText = 'display:none;'; }
+    thh.textContent = h;
+    tr.appendChild(thh);
+  });
+  th.appendChild(tr);
+  adjustStickyTops();
+  window.addEventListener('resize', adjustStickyTops);
+  renderTable(ALL_DATA);
+  document.getElementById('searchInfo').textContent='共 '+ALL_DATA.length+' 条记录';
+  var mh=document.getElementById('modalHead');
+  var nth=document.createElement('th'); nth.textContent='#'; nth.style.cssText='background:#16213e;color:#eee;padding:10px 8px;font-size:12px;width:36px;text-align:center;'; mh.appendChild(nth);
+  HEADERS.forEach(function(h,i){
+    if(FREEZE_ROWS > 0 && i === 0) return;
+    var thh=document.createElement('th'); thh.textContent=h; mh.appendChild(thh);
+  });
+})();
+
+function renderTable(rows){
+  var tb=document.getElementById('tableBody'); tb.innerHTML='';
+  if(rows.length===0){ tb.innerHTML='<tr><td colspan="'+HEADERS.length+'" class="empty-tip">没有匹配的记录</td></tr>'; return; }
+  rows.forEach(function(row){
+    var tr=document.createElement('tr');
+    if(selectedSet.has(row._idx)) tr.classList.add('selected');
+    tr.dataset.idx=row._idx;
+    tr.onclick=function(){ toggleRow(row._idx,tr); };
+    var clr = ROW_COLORS[row._idx];
+    if(clr){ tr.style.setProperty('background-color', clr, 'important'); }
+    if(FREEZE_ROWS > 0 && row.cells.length > 0){
+      var excelRow = parseInt(row.cells[0]) || 0;
+      if(excelRow > 0) tr.id = 'erow-' + excelRow;
+    }
+    row.cells.forEach(function(c, ci){
+      var td=document.createElement('td');
+      if(FREEZE_ROWS > 0 && ci === 0){ td.style.cssText = 'display:none;'; }
+      td.textContent = c;
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+}
+
+function toggleRow(idx,tr){
+  if(selectedSet.has(idx)){ selectedSet.delete(idx); tr.classList.remove('selected'); }
+  else{ selectedSet.add(idx); tr.classList.add('selected'); }
+  updateCount();
+}
+
+function updateCount(){
+  var n=selectedSet.size;
+  document.getElementById('countBadge').textContent='已选 '+n+' 行';
+  document.getElementById('btnSubmit').disabled=n===0;
+}
+
+function clearSelection(){
+  selectedSet.clear();
+  document.querySelectorAll('#tableBody tr.selected').forEach(function(tr){ tr.classList.remove('selected'); });
+  updateCount();
+}
+
+function filterTable(){
+  var q=document.getElementById('searchInput').value.trim().toLowerCase();
+  var filtered=q ? ALL_DATA.filter(function(r){ return r.cells.some(function(c){ return c.toLowerCase().indexOf(q)>-1; }); }) : ALL_DATA;
+  document.getElementById('searchInfo').textContent=q ? ('共 '+ALL_DATA.length+' 条，显示 '+filtered.length+' 条') : ('共 '+ALL_DATA.length+' 条记录');
+  renderTable(filtered);
+}
+
+function adjustStickyTops(){
+  var toolbar = document.querySelector('.toolbar');
+  var searchBar = document.querySelector('.search-bar');
+  var fh = document.getElementById('frozenHeader');
+  if(!fh) return;
+  var tTop = toolbar ? parseInt(getComputedStyle(toolbar).top) || 0 : 0;
+  var tH = toolbar ? toolbar.offsetHeight : 46;
+  var sH = searchBar ? searchBar.offsetHeight : 36;
+  var fH = fh.offsetHeight;
+  var base = tTop + tH;
+  if(searchBar) searchBar.style.top = base + 'px';
+  fh.style.top = (base + sH) + 'px';
+  var ths = document.querySelectorAll('thead th');
+  ths.forEach(function(th){ th.style.top = (base + sH + fH) + 'px'; });
+}
+
+function scrollToRow(excelRow){
+  var target = document.getElementById('erow-' + excelRow);
+  if(!target) return;
+  target.scrollIntoView({behavior:'smooth', block:'center'});
+  target.style.transition = 'background .3s';
+  target.style.setProperty('background-color', '#ffe0e6', 'important');
+  setTimeout(function(){
+    target.style.transition = 'background .8s';
+    target.style.setProperty('background-color', '', '');
+  }, 800);
+}
+
+function openModal(){
+  if(selectedSet.size===0) return;
+  var selected=ALL_DATA.filter(function(r){ return selectedSet.has(r._idx); });
+  var tb=document.getElementById('modalBody'); tb.innerHTML='';
+  selected.forEach(function(row,i){
+    var tr=document.createElement('tr');
+    var nt=document.createElement('td'); nt.textContent=i+1; nt.className='row-num'; tr.appendChild(nt);
+    row.cells.forEach(function(c, ci){
+      if(FREEZE_ROWS > 0 && ci === 0) return;
+      var td=document.createElement('td'); td.textContent=c; td.style.cssText='padding:9px 14px;font-size:13px;color:#333;'; tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+  document.getElementById('modalTitle').textContent='📋 已选子表单（共 '+selected.length+' 行）';
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function closeModal(){ document.getElementById('modalOverlay').classList.remove('show'); }
+
+document.getElementById('modalOverlay').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
+</script>
+</body>
+</html>
