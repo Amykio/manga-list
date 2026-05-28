@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>index</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Microsoft YaHei","微软雅黑",sans-serif; background: #f0f2f5; }
+  .toolbar {
+    position: sticky; top: 0; z-index: 100;
+    background: #1a1a2e; color: #fff; padding: 12px 20px;
+    display: flex; align-items: center; gap: 16px;
+    flex-wrap: wrap; row-gap: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  }
+  .toolbar h1 { font-size: 18px; font-weight: 700; flex: 1 1 auto; white-space: nowrap; }
+  .selected-count {
+    background: #e94560; color: #fff; padding: 4px 14px;
+    border-radius: 20px; font-size: 13px; font-weight: 600;
+    min-width: 80px; text-align: center;
+  }
+  .btn-clear {
+    background: transparent; border: 1px solid #e94560; color: #e94560;
+    padding: 6px 16px; border-radius: 6px; cursor: pointer;
+    font-size: 13px; transition: all .2s;
+  }
+  .btn-clear:hover { background: #e94560; color: #fff; }
+  .btn-submit {
+    background: #e94560; color: #fff; padding: 6px 20px;
+    border-radius: 6px; cursor: pointer; font-size: 14px;
+    font-weight: 600; border: none; transition: all .2s;
+  }
+  .btn-submit:hover { background: #c73652; }
+  .btn-submit:disabled { background: #555; cursor: not-allowed; }
+  .search-bar {
+    position: sticky; top: 46px; z-index: 90;
+    padding: 10px 20px; background: #fff;
+    border-bottom: 1px solid #ddd;
+    display: flex; gap: 12px; align-items: center;
+  }
+  .search-bar input {
+    flex: 1; padding: 6px 12px; border: 1px solid #ccc;
+    border-radius: 6px; font-size: 14px; outline: none;
+  }
+  .search-bar input:focus { border-color: #e94560; }
+  .search-info { font-size: 12px; color: #888; white-space: nowrap; }
+  .frozen-header {
+    position: sticky; top: 82px; z-index: 80;
+    background: #fff; border-bottom: 2px solid #e94560;
+    box-shadow: 0 2px 6px rgba(0,0,0,.08);
+  }
+  .frozen-row {
+    display: flex; border-bottom: 1px solid #eee;
+    min-height: 36px; align-items: center;
+  }
+  .frozen-row.empty { min-height: 14px; background: #fafafa; }
+  .frozen-cell {
+    padding: 6px 14px; font-size: 13px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .frozen-cell a {
+    color: #e94560; text-decoration: none; cursor: pointer;
+    font-weight: 600; transition: color .15s;
+  }
+  .frozen-cell a:hover { text-decoration: underline; color: #c73652; }
+  .frozen-cell.merged {
+    text-align: center; font-weight: 600; color: #555;
+    background: #f8f8f8; font-size: 14px;
+  }
+  table { width: 100%; border-collapse: collapse; background: #fff; }
+  thead th {
+    background: #16213e; color: #eee; padding: 10px 14px;
+    text-align: left; font-size: 13px; font-weight: 600;
+    position: sticky; top: 88px; z-index: 50;
+    white-space: nowrap;
+  }
+  tbody tr {
+    border-bottom: 1px solid #f0f0f0; cursor: pointer;
+    transition: background .12s;
+  }
+  tbody tr:hover { background: #fff3f5 !important; }
+  tbody tr.selected { background: #ffe0e6 !important; border-left: 3px solid #e94560; }
+  tbody tr.selected td:first-child { font-weight: 600; color: #e94560; }
+  tbody td { padding: 9px 14px; font-size: 13px; color: #333; }
+  tbody tr:nth-child(even) { background: #fafafa; }
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.55); z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: #fff; border-radius: 12px;
+    width: 92%; max-width: 920px; max-height: 86vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 8px 40px rgba(0,0,0,.3);
+  }
+  .modal-header {
+    padding: 16px 20px; display: flex; align-items: center;
+    justify-content: space-between;
+    background: #1a1a2e; color: #fff; border-radius: 12px 12px 0 0;
+  }
+  .modal-header h2 { font-size: 16px; }
+  .modal-close {
+    background: none; border: none; color: #aaa;
+    font-size: 22px; cursor: pointer; line-height: 1;
+  }
+  .modal-close:hover { color: #fff; }
+  .modal-body { overflow-y: auto; flex: 1; }
+  .modal-footer {
+    padding: 12px 20px; border-top: 1px solid #eee;
+    display: flex; gap: 10px; justify-content: flex-end;
+    flex-wrap: wrap; background: #fafafa; border-radius: 0 0 12px 12px;
+  }
+  .modal table { width: 100%; }
+  .modal thead th {
+    position: static; background: #16213e; color: #eee;
+    padding: 10px 14px; text-align: left; font-size: 13px;
+  }
+  .modal tbody tr { background: #fff; }
+  .modal tbody tr:nth-child(even) { background: #f8f8f8; }
+  .btn-share {
+    background: #e94560; color: #fff; padding: 7px 18px;
+    border-radius: 6px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 600; transition: background .2s;
+  }
+  .btn-share:hover { background: #c73652; }
+  .btn-modal-close {
+    background: #eee; color: #333; padding: 7px 18px;
+    border-radius: 6px; border: none; cursor: pointer; font-size: 13px;
+  }
+  .btn-modal-close:hover { background: #ddd; }
+  .empty-tip { text-align: center; padding: 60px; color: #aaa; font-size: 15px; }
+  .row-num { padding: 9px 10px; text-align: center; color: #bbb; font-size: 11px; }
+  /* ── 分享视图样式 ── */
+  .share-view-container {
+    max-width: 1200px; margin: 0 auto; padding: 20px;
+  }
+  .share-header {
+    background: #1a1a2e; color: #fff; padding: 14px 24px;
+    border-radius: 10px 10px 0 0;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .share-header h1 { font-size: 17px; font-weight: 600; }
+  .share-header a { color: #e94560; font-size: 13px; text-decoration: none; }
+  .share-header a:hover { text-decoration: underline; }
+  .share-table {
+    background: #fff; border-radius: 0 0 10px 10px;
+    overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  }
+  .share-table table { width: 100%; border-collapse: collapse; }
+  .share-table thead th {
+    background: #f5f5f5; color: #333; padding: 10px 14px;
+    text-align: left; font-size: 13px; font-weight: 600;
+    border-bottom: 2px solid #e94560; position: static;
+  }
+  .share-table tbody tr { cursor: default; border-bottom: 1px solid #f0f0f0; }
+  .share-table tbody tr:hover { background: #ffe0e6 !important; }
+  .share-table tbody tr:nth-child(even) { background: #fafafa; }
+  .share-table tbody td { padding: 9px 14px; font-size: 13px; color: #333; }
+  .share-footer {
+    text-align: center; padding: 20px; color: #999; font-size: 12px;
+  }
+
+  @media (max-width: 500px) {
+    .toolbar { padding: 8px 12px; gap: 8px; }
+    .toolbar h1 { font-size: 15px; }
+    .selected-count { font-size: 12px; padding: 3px 10px; min-width: auto; }
+    .btn-clear { font-size: 12px; padding: 4px 10px; }
+    .btn-submit { font-size: 12px; padding: 4px 12px; }
+    .search-bar { padding: 8px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── 交互视图（默认） ── -->
+<div id="mainView">
+<div class="toolbar">
+  <h1>📁 index</h1>
+  <div class="selected-count" id="countBadge">已选 0 行</div>
+  <button class="btn-clear" onclick="clearSelection()">✕ 清除选择</button>
+  <button class="btn-submit" id="btnSubmit" onclick="openModal()" disabled>📋 我选好了</button>
+</div>
+
+<div class="search-bar">
+  <input type="text" id="searchInput" placeholder="🔍 搜索..." oninput="filterTable()">
+  <span class="search-info" id="searchInfo">共 0 条记录</span>
+</div>
+
+<div class="frozen-header" id="frozenHeader">
+  <div class="frozen-row empty"><div class="frozen-cell">&nbsp;</div></div><div class="frozen-row"><div class="frozen-cell merged">资源说明：目录上99%为 高清PDF版本。   </div></div><div class="frozen-row empty"><div class="frozen-cell">&nbsp;</div></div><div class="frozen-row"><div class="frozen-cell merged">下方红字为漫画分类，点击可跳转相应分类。</div></div><div class="frozen-row"><div class="frozen-cell"></div><div class="frozen-cell"><a href="https://amykio.github.io/manga-list/日漫目录.html" target="_blank" rel="noopener" title="打开: https://amykio.github.io/manga-list/日漫目录.html">日漫目录</a></div><div class="frozen-cell"><a href="https://manga-list-d81sjvik.edgeone.cool/日漫目录" target="_blank" rel="noopener" title="打开: https://manga-list-d81sjvik.edgeone.cool/日漫目录">日漫目录（国内镜像）</a></div><div class="frozen-cell"></div></div><div class="frozen-row"><div class="frozen-cell"></div><div class="frozen-cell"><a href="https://amykio.github.io/manga-list/港漫目录.html" target="_blank" rel="noopener" title="打开: https://amykio.github.io/manga-list/港漫目录.html">港漫目录</a></div><div class="frozen-cell"><a href="https://manga-list-d81sjvik.edgeone.cool/港漫目录" target="_blank" rel="noopener" title="打开: https://manga-list-d81sjvik.edgeone.cool/港漫目录">港漫目录（国内镜像）</a></div><div class="frozen-cell"></div></div><div class="frozen-row"><div class="frozen-cell"></div><div class="frozen-cell"><a href="https://amykio.github.io/manga-list/少女作者.html" target="_blank" rel="noopener" title="打开: https://amykio.github.io/manga-list/少女作者.html">少女作者</a></div><div class="frozen-cell"><a href="https://manga-list-d81sjvik.edgeone.cool/少女作者" target="_blank" rel="noopener" title="打开: https://manga-list-d81sjvik.edgeone.cool/少女作者">少女作者（国内镜像）</a></div><div class="frozen-cell"></div></div><div class="frozen-row empty"><div class="frozen-cell">&nbsp;</div></div>
+</div>
+
+<div class="table-wrap">
+  <table id="mainTable">
+    <thead id="tableHead"></thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+</div>
+
+<div class="share-view-container" id="shareView" style="display:none;">
+  <div class="share-header">
+    <h1>📋 已选子表单 - <span id="shareTitle">index</span></h1>
+    <a href="." onclick="exitShareView();return false">← 返回完整表单</a>
+  </div>
+  <div class="share-table">
+    <table>
+      <thead id="shareHead"></thead>
+      <tbody id="shareBody"></tbody>
+    </table>
+  </div>
+  <div class="share-footer">由「index」工具生成 · 基于完整数据源</div>
+</div>
+
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">📋 已选子表单</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <table>
+        <thead><tr id="modalHead"></tr></thead>
+        <tbody id="modalBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-share" onclick="createShareLink()">🔗 创建分享链接</button>
+      <button class="btn-modal-close" onclick="closeModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var RAW = {"headers": ["#", "", "", "", ""], "data": [{"_idx": 0, "cells": ["10", "编号", "漫画名", "作者 / 作画", "卷数"]}, {"_idx": 1, "cells": ["11", "都市  B", "", "", ""]}], "row_colors": [null, "#000000"], "freeze_rows": 9};
+var HEADERS = RAW.headers;
+var ALL_DATA = RAW.data;
+var ROW_COLORS = RAW.row_colors || [];
+var FREEZE_ROWS = RAW.freeze_rows || 0;
+
+var selectedSet = new Set();
+
+
+// ═══════ 行号索引编解码 ═══════
+
+/**
+ * 编码：[0,1,2,5,6,7,9] → "0-2,5-7,9"
+ * 连续 3 个及以上的索引压缩为范围
+ */
+function encodeRowIds(ids) {
+  if (ids.length === 0) return '';
+  ids.sort(function(a, b) { return a - b; });
+  var parts = [];
+  var start = ids[0], end = ids[0];
+  for (var i = 1; i < ids.length; i++) {
+    if (ids[i] === end + 1) {
+      end = ids[i];
+    } else {
+      parts.push(start === end ? String(start) : (end - start >= 2 ? start + '-' + end : start + ',' + end));
+      start = end = ids[i];
+    }
+  }
+  parts.push(start === end ? String(start) : (end - start >= 2 ? start + '-' + end : start + ',' + end));
+  return parts.join(',');
+}
+
+/**
+ * 解码："0-2,5,7,9" → [0,1,2,5,7,9]
+ */
+function decodeRowIds(str) {
+  if (!str) return [];
+  var ids = [];
+  var parts = str.split(',');
+  parts.forEach(function(p) {
+    p = p.trim();
+    if (!p) return;
+    var range = p.split('-');
+    if (range.length === 2) {
+      var s = parseInt(range[0]), e = parseInt(range[1]);
+      if (!isNaN(s) && !isNaN(e)) {
+        for (var i = s; i <= e; i++) ids.push(i);
+      }
+    } else {
+      var v = parseInt(p);
+      if (!isNaN(v)) ids.push(v);
+    }
+  });
+  return ids;
+}
+
+// ═══════ 分享模式检测 ═══════
+(function checkShareMode() {
+  var hash = location.hash;
+  var m = hash.match(/^#share=(.+)/);
+  if (!m) return;
+  var ids = decodeRowIds(m[1]);
+  if (ids.length === 0) return;
+
+  // 从内嵌全量数据中提取对应行
+  var selected = [];
+  var found = 0;
+  ids.forEach(function(idx) {
+    if (idx >= 0 && idx < ALL_DATA.length) {
+      selected.push(ALL_DATA[idx]);
+      found++;
+    }
+  });
+  if (found === 0) return;
+  showSharedView(selected);
+})();
+
+function showSharedView(selectedRows) {
+  // 隐藏交互视图，显示分享视图
+  document.getElementById('mainView').style.display = 'none';
+  var fh = document.getElementById('frozenHeader');
+  if (fh) fh.style.display = 'none';
+  document.getElementById('shareView').style.display = 'block';
+
+  // 表头（跳过行号列）
+  var shareHeaders = FREEZE_ROWS > 0 ? HEADERS.slice(1) : HEADERS.slice();
+  var thead = document.getElementById('shareHead');
+  var tr = document.createElement('tr');
+  var nTh = document.createElement('th');
+  nTh.textContent = '#'; nTh.style.cssText = 'text-align:center;width:40px;';
+  tr.appendChild(nTh);
+  shareHeaders.forEach(function(h) {
+    var th = document.createElement('th'); th.textContent = h; tr.appendChild(th);
+  });
+  thead.appendChild(tr);
+
+  // 数据行
+  var tbody = document.getElementById('shareBody');
+  selectedRows.forEach(function(row, i) {
+    var r = document.createElement('tr');
+    var nTd = document.createElement('td');
+    nTd.textContent = i + 1; nTd.style.cssText = 'text-align:center;color:#bbb;font-size:11px;';
+    r.appendChild(nTd);
+    // 跳过行号列（_idx=0 位置）
+    var cells = FREEZE_ROWS > 0 ? row.cells.slice(1) : row.cells.slice();
+    cells.forEach(function(c) {
+      var td = document.createElement('td'); td.textContent = c || ''; r.appendChild(td);
+    });
+    tbody.appendChild(r);
+  });
+
+  document.getElementById('shareTitle').textContent = '已选 \xb7 共 ' + selectedRows.length + ' 行';
+  document.title = '已选子表单 \xb7 ' + selectedRows.length + ' 行';
+}
+
+function exitShareView() {
+  history.replaceState(null, '', location.pathname);
+  location.reload();
+}
+
+// ═══════ 创建分享链接（行号索引） ═══════
+function createShareLink() {
+  var selected = ALL_DATA.filter(function(r) { return selectedSet.has(r._idx); });
+  if (selected.length === 0) { alert('请先选中数据行'); return; }
+
+  var ids = selected.map(function(r) { return r._idx; });
+  var encoded = encodeRowIds(ids);
+  var url = location.origin + location.pathname + '#share=' + encoded;
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(function() {
+      alert('分享链接已复制到剪贴板！(' + selected.length + ' 行)\n\n' +
+            '点击确定后。\n' +
+            '把地址直接粘贴到您和卖家的对话框即可。');
+    }).catch(function() {
+      showShareUrlPanel(url, selected.length);
+    });
+  } else {
+    showShareUrlPanel(url, selected.length);
+  }
+}
+
+function showShareUrlPanel(url, count) {
+  var panel = document.createElement('div');
+  panel.style.cssText = 'position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6)';
+  var box = document.createElement('div');
+  box.style.cssText = 'background:#fff;border-radius:12px;width:92%;max-width:600px;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.3)';
+  box.innerHTML = '<div style="padding:16px 20px;background:#1a1a2e;color:#fff;border-radius:12px 12px 0 0;font-size:15px;font-weight:600;">🔗 分享链接（' + count + ' 行数据 · 行号索引）</div>' +
+    '<textarea readonly style="flex:1;min-height:80px;padding:16px;border:none;font-size:13px;font-family:Consolas,monospace;resize:none;outline:none;word-break:break-all">' + url + '</textarea>' +
+    '<div style="padding:12px 20px;border-top:1px solid #eee;display:flex;gap:10px;justify-content:flex-end;background:#fafafa;border-radius:0 0 12px 12px">' +
+    '<button onclick="this.closest(\'div\').parentElement.parentElement.remove()" style="background:#eee;color:#333;padding:7px 18px;border-radius:6px;border:none;cursor:pointer;font-size:13px">关闭</button>' +
+    '<button id="shareCopyBtn" style="background:#e94560;color:#fff;padding:7px 18px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-weight:600">📋 复制链接</button></div>';
+  panel.appendChild(box);
+  document.body.appendChild(panel);
+  panel.onclick = function(e) { if(e.target===panel) panel.remove(); };
+  document.getElementById('shareCopyBtn').onclick = function() {
+    var ta = box.querySelector('textarea');
+    ta.select();
+    document.execCommand('copy');
+    alert('已复制！直接发给别人即可。');
+    panel.remove();
+  };
+}
+
+
+(function init(){
+  // 如果处于分享模式，跳过 init
+  if(location.hash.indexOf('#share=') === 0) return;
+  var th=document.getElementById('tableHead'), tr=document.createElement('tr');
+  HEADERS.forEach(function(h,i){
+    var thh=document.createElement('th');
+    if(FREEZE_ROWS > 0 && i === 0){ thh.style.cssText = 'display:none;'; }
+    thh.textContent = h;
+    tr.appendChild(thh);
+  });
+  th.appendChild(tr);
+  adjustStickyTops();
+  window.addEventListener('resize', adjustStickyTops);
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize', adjustStickyTops);
+    window.visualViewport.addEventListener('scroll', adjustStickyTops);
+  }
+  renderTable(ALL_DATA);
+  document.getElementById('searchInfo').textContent='共 '+ALL_DATA.length+' 条记录';
+  var mh=document.getElementById('modalHead');
+  var nth=document.createElement('th'); nth.textContent='#'; nth.style.cssText='background:#16213e;color:#eee;padding:10px 8px;font-size:12px;width:36px;text-align:center;'; mh.appendChild(nth);
+  HEADERS.forEach(function(h,i){
+    if(FREEZE_ROWS > 0 && i === 0) return;
+    var thh=document.createElement('th'); thh.textContent=h; mh.appendChild(thh);
+  });
+})();
+
+function renderTable(rows){
+  var tb=document.getElementById('tableBody'); tb.innerHTML='';
+  if(rows.length===0){ tb.innerHTML='<tr><td colspan="'+HEADERS.length+'" class="empty-tip">没有匹配的记录</td></tr>'; return; }
+  rows.forEach(function(row){
+    var tr=document.createElement('tr');
+    if(selectedSet.has(row._idx)) tr.classList.add('selected');
+    tr.dataset.idx=row._idx;
+    tr.onclick=function(){ toggleRow(row._idx,tr); };
+    var clr = ROW_COLORS[row._idx];
+    if(clr){ tr.style.setProperty('background-color', clr, 'important'); }
+    if(FREEZE_ROWS > 0 && row.cells.length > 0){
+      var excelRow = parseInt(row.cells[0]) || 0;
+      if(excelRow > 0) tr.id = 'erow-' + excelRow;
+    }
+    row.cells.forEach(function(c, ci){
+      var td=document.createElement('td');
+      if(FREEZE_ROWS > 0 && ci === 0){ td.style.cssText = 'display:none;'; }
+      td.textContent = c;
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+}
+
+function toggleRow(idx,tr){
+  if(selectedSet.has(idx)){ selectedSet.delete(idx); tr.classList.remove('selected'); }
+  else{ selectedSet.add(idx); tr.classList.add('selected'); }
+  updateCount();
+}
+
+function updateCount(){
+  var n=selectedSet.size;
+  document.getElementById('countBadge').textContent='已选 '+n+' 行';
+  document.getElementById('btnSubmit').disabled=n===0;
+}
+
+function clearSelection(){
+  selectedSet.clear();
+  document.querySelectorAll('#tableBody tr.selected').forEach(function(tr){ tr.classList.remove('selected'); });
+  updateCount();
+}
+
+function filterTable(){
+  var q=document.getElementById('searchInput').value.trim().toLowerCase();
+  var filtered=q ? ALL_DATA.filter(function(r){ return r.cells.some(function(c){ return c.toLowerCase().indexOf(q)>-1; }); }) : ALL_DATA;
+  document.getElementById('searchInfo').textContent=q ? ('共 '+ALL_DATA.length+' 条，显示 '+filtered.length+' 条') : ('共 '+ALL_DATA.length+' 条记录');
+  renderTable(filtered);
+}
+
+function adjustStickyTops(){
+  var toolbar = document.querySelector('.toolbar');
+  var searchBar = document.querySelector('.search-bar');
+  var fh = document.getElementById('frozenHeader');
+  if(!fh) return;
+  var vpTop = (window.visualViewport && window.visualViewport.offsetTop) || 0;
+  if(toolbar) toolbar.style.top = vpTop + 'px';
+  var tH = toolbar ? toolbar.offsetHeight : 46;
+  var sH = searchBar ? searchBar.offsetHeight : 36;
+  var fH = fh.offsetHeight;
+  var base = vpTop + tH;
+  if(searchBar) searchBar.style.top = base + 'px';
+  fh.style.top = (base + sH) + 'px';
+  var ths = document.querySelectorAll('thead th');
+  ths.forEach(function(th){ th.style.top = (base + sH + fH) + 'px'; });
+}
+
+function scrollToRow(excelRow){
+  var target = document.getElementById('erow-' + excelRow);
+  if(!target) return;
+  target.scrollIntoView({behavior:'smooth', block:'center'});
+  target.style.transition = 'background .3s';
+  target.style.setProperty('background-color', '#ffe0e6', 'important');
+  setTimeout(function(){
+    target.style.transition = 'background .8s';
+    target.style.setProperty('background-color', '', '');
+  }, 800);
+}
+
+function openModal(){
+  if(selectedSet.size===0) return;
+  var selected=ALL_DATA.filter(function(r){ return selectedSet.has(r._idx); });
+  var tb=document.getElementById('modalBody'); tb.innerHTML='';
+  selected.forEach(function(row,i){
+    var tr=document.createElement('tr');
+    var nt=document.createElement('td'); nt.textContent=i+1; nt.className='row-num'; tr.appendChild(nt);
+    row.cells.forEach(function(c, ci){
+      if(FREEZE_ROWS > 0 && ci === 0) return;
+      var td=document.createElement('td'); td.textContent=c; td.style.cssText='padding:9px 14px;font-size:13px;color:#333;'; tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+  document.getElementById('modalTitle').textContent='📋 已选子表单（共 '+selected.length+' 行）';
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function closeModal(){ document.getElementById('modalOverlay').classList.remove('show'); }
+
+document.getElementById('modalOverlay').addEventListener('click',function(e){ if(e.target===this) closeModal(); });
+</script>
+</body>
+</html>
